@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Bottleneck — Tableau de bord (prototype v2)</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.32.0/plotly.min.js"></script>
+<style>
+  :root{
+    --wine:#7A1230; --wine-dark:#3D0A17; --cream:#F5EFE9; --ink:#1c1512;
+    --muted:#7a7169; --card:#ffffff; --gold:#C9A227; --bad:#8a3b2a;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Georgia',serif;background:var(--cream);color:var(--ink);}
+  header{background:var(--wine-dark);color:#fff;padding:28px 40px;display:flex;align-items:center;justify-content:space-between;}
+  header .brand{display:flex;align-items:center;gap:14px;}
+  header .brand .dot{width:14px;height:14px;border-radius:50%;background:var(--wine);}
+  header h1{font-size:22px;margin:0;font-weight:600;letter-spacing:.3px;}
+  header p{margin:4px 0 0;font-size:13px;color:#d8c9c0;font-family:Arial,sans-serif;}
+  nav{display:flex;gap:4px;background:#fff;padding:0 40px;border-bottom:2px solid var(--wine);position:sticky;top:0;z-index:10;box-shadow:0 2px 6px rgba(0,0,0,.05);}
+  nav button{font-family:Arial,sans-serif;border:none;background:none;padding:16px 18px;font-size:14px;cursor:pointer;color:var(--muted);border-bottom:3px solid transparent;transition:.15s;}
+  nav button:hover{color:var(--wine);}
+  nav button.active{color:var(--wine-dark);border-bottom-color:var(--wine);font-weight:700;}
+  main{padding:32px 40px 60px;max-width:1280px;margin:0 auto;}
+  section{display:none;}
+  section.active{display:block;animation:fade .25s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+  h2.page-title{font-size:24px;margin:0 0 4px;color:var(--wine-dark);}
+  p.page-sub{font-family:Arial,sans-serif;color:var(--muted);font-size:13px;margin:0 0 20px;}
+  .filterbar{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;background:#fff;border-radius:10px;padding:14px 18px;margin-bottom:22px;box-shadow:0 1px 4px rgba(0,0,0,.06);font-family:Arial,sans-serif;}
+  .filterbar .fgroup{display:flex;flex-direction:column;gap:4px;}
+  .filterbar label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;}
+  .filterbar select{font-family:Arial,sans-serif;font-size:13px;padding:7px 10px;border-radius:6px;border:1px solid #ddd0c4;background:#fff;color:var(--ink);}
+  .filterbar .reset{margin-left:auto;font-size:12px;color:var(--wine);background:none;border:1px solid var(--wine);border-radius:20px;padding:7px 14px;cursor:pointer;}
+  .filterbar .reset:hover{background:var(--wine);color:#fff;}
+  .kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:28px;}
+  .kpi{background:var(--card);border-radius:10px;padding:18px 20px;border-left:4px solid var(--wine);box-shadow:0 1px 4px rgba(0,0,0,.06);}
+  .kpi .label{font-family:Arial,sans-serif;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;}
+  .kpi .value{font-size:28px;font-weight:700;color:var(--wine-dark);margin-top:4px;}
+  .kpi .sub{font-family:Arial,sans-serif;font-size:12px;color:var(--muted);margin-top:2px;}
+  .kpi.alert{border-left-color:#B8860B;}
+  .kpi.bad{border-left-color:var(--bad);}
+  .kpi.bad .value{color:var(--bad);}
+  .grid2{display:grid;grid-template-columns:1.3fr 1fr;gap:20px;}
+  .panel{background:var(--card);border-radius:10px;padding:18px 20px 6px;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+  .panel h3{font-family:Arial,sans-serif;font-size:14px;color:var(--wine-dark);margin:0 0 10px;text-transform:uppercase;letter-spacing:.3px;}
+  .callout{font-family:Arial,sans-serif;font-size:13px;background:var(--cream);border:1px solid #e6d9cc;border-left:4px solid var(--gold);border-radius:6px;padding:14px 16px;margin:18px 0;line-height:1.5;}
+  .callout.warn{border-left-color:var(--bad);}
+  .callout b{color:var(--wine-dark);}
+  .reco{background:var(--card);border-radius:10px;padding:18px 20px;margin-bottom:14px;border-left:4px solid var(--wine);box-shadow:0 1px 4px rgba(0,0,0,.06);}
+  .reco h4{margin:0 0 6px;color:var(--wine-dark);font-size:15px;}
+  .reco p{font-family:Arial,sans-serif;font-size:13.5px;color:#3a332f;margin:0;line-height:1.5;}
+  .badge{display:inline-block;font-family:Arial,sans-serif;font-size:11px;font-weight:700;background:var(--wine);color:#fff;padding:2px 8px;border-radius:20px;margin-right:8px;}
+  table.doc{width:100%;border-collapse:collapse;font-family:Arial,sans-serif;font-size:13px;}
+  table.doc th{background:var(--wine);color:#fff;text-align:left;padding:8px 10px;}
+  table.doc td{padding:7px 10px;border-bottom:1px solid #eee;}
+  table.doc tr:nth-child(even){background:#faf6f1;}
+  footer{text-align:center;font-family:Arial,sans-serif;font-size:12px;color:var(--muted);padding:20px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <span class="dot"></span>
+    <div>
+      <h1>BOTTLENECK — Tableau de bord ventes &amp; stock</h1>
+      <p>Prototype interactif v2 · Base consolidée oct. 2022 – sept. 2023 · Aurélie Dupassieux</p>
+    </div>
+  </div>
+</header>
+
+<nav id="nav">
+  <button data-t="apercu" class="active">Vue d'ensemble</button>
+  <button data-t="segments">Segments &amp; marge</button>
+  <button data-t="stock">Stock</button>
+  <button data-t="promo">Promotions</button>
+  <button data-t="reco">Recommandations</button>
+  <button data-t="doc">Documentation</button>
+</nav>
+
+<main>
+
+  <!-- ===== APERCU ===== -->
+  <section id="apercu" class="active">
+    <h2 class="page-title">Vue d'ensemble</h2>
+    <p class="page-sub">Page de garde — indicateurs clés, filtrables par période et par segment</p>
+
+    <div class="filterbar">
+      <div class="fgroup">
+        <label>Du mois</label>
+        <select id="fFrom"></select>
+      </div>
+      <div class="fgroup">
+        <label>Au mois</label>
+        <select id="fTo"></select>
+      </div>
+      <div class="fgroup">
+        <label>Segment</label>
+        <select id="fSeg">
+          <option value="Tous">Tous les segments</option>
+          <option value="Vin">Vin</option>
+          <option value="Spiritueux">Spiritueux</option>
+          <option value="Sans Alcool">Sans Alcool</option>
+          <option value="Huile">Huile</option>
+          <option value="Offres commerciales">Offres commerciales</option>
+        </select>
+      </div>
+      <button class="reset" id="fReset">Réinitialiser</button>
+    </div>
+
+    <div class="kpi-row">
+      <div class="kpi"><div class="label">Chiffre d'affaires</div><div class="value" id="kpiCA">–</div><div class="sub" id="kpiCASub">période sélectionnée</div></div>
+      <div class="kpi"><div class="label">Taux de marge moyen</div><div class="value" id="kpiMarge">–</div><div class="sub">pondéré par le CA</div></div>
+      <div class="kpi"><div class="label">Stock valorisé</div><div class="value" id="kpiStock">–</div><div class="sub" id="kpiStockSub">fin de période, tous segments</div></div>
+      <div class="kpi alert"><div class="label">Fiches produit manquantes</div><div class="value">110</div><div class="sub">SKU en catalogue sans fiche web</div></div>
+    </div>
+    <div class="panel">
+      <h3>Évolution du chiffre d'affaires mensuel</h3>
+      <div id="chartCA" style="height:340px;"></div>
+    </div>
+    <div class="callout" id="apercuNote"><b>Lecture rapide :</b> le CA suit une forte saisonnalité de fin d'année (pic en décembre 2022, fêtes) puis un creux en janvier–mars, avant une reprise progressive au printemps et à l'été 2023.</div>
+  </section>
+
+  <!-- ===== SEGMENTS ===== -->
+  <section id="segments">
+    <h2 class="page-title">Segments &amp; marge</h2>
+    <p class="page-sub">Répartition du chiffre d'affaires et rentabilité par segment — utilise les mêmes filtres que la Vue d'ensemble</p>
+    <div class="grid2">
+      <div class="panel"><h3>CA par segment (période sélectionnée)</h3><div id="chartSegCA" style="height:360px;"></div></div>
+      <div class="panel"><h3>Taux de marge par segment</h3><div id="chartSegMarge" style="height:360px;"></div></div>
+    </div>
+    <div class="panel" style="margin-top:20px;"><h3 id="topProdTitle">Top références par CA</h3><div id="chartTopProd" style="height:360px;"></div></div>
+    <div class="callout"><b>Constat :</b> le Sans Alcool, nouveau marché, affiche la meilleure marge malgré un volume encore modeste — et n'apparaît qu'à partir de mai 2023 (lancement en cours de période).</div>
+  </section>
+
+  <!-- ===== STOCK ===== -->
+  <section id="stock">
+    <h2 class="page-title">Stock</h2>
+    <p class="page-sub">Rotation et immobilisation financière du stock (photo de fin de période sélectionnée)</p>
+    <div class="kpi-row">
+      <div class="kpi"><div class="label">Bouteilles en stock</div><div class="value" id="kpiStockQty">–</div></div>
+      <div class="kpi alert"><div class="label">Valeur immobilisée</div><div class="value" id="kpiStockVal">–</div><div class="sub">au prix d'achat</div></div>
+      <div class="kpi alert"><div class="label">Référence la plus dormante</div><div class="value">29 mois</div><div class="sub">de stock au rythme de vente actuel</div></div>
+    </div>
+    <div class="panel"><h3>Top 10 références à rotation la plus lente (mois de stock, sur 12 mois)</h3><div id="chartStock" style="height:400px;"></div></div>
+    <div class="callout"><b>Piste business :</b> ces références (grands vins de garde, prix unitaire élevé) immobilisent une part disproportionnée de trésorerie. Une revue ciblée permettrait de libérer du capital sans toucher au cœur de gamme.</div>
+  </section>
+
+  <!-- ===== PROMO ===== -->
+  <section id="promo">
+    <h2 class="page-title">Promotions</h2>
+    <p class="page-sub">Impact réel des opérations promotionnelles — sur le volume, puis sur la marge nette</p>
+    <div class="grid2">
+      <div class="panel"><h3>Ventes moyennes mensuelles — avec vs sans promotion</h3><div id="chartPromo" style="height:320px;"></div></div>
+      <div class="panel">
+        <h3>Effet sur le volume</h3>
+        <p style="font-family:Arial,sans-serif;font-size:14px;line-height:1.7;padding:6px 4px 10px;">
+        Sur les 698 opérations promotionnelles enregistrées, les produits concernés se vendent en moyenne à
+        <b>14,4 unités/mois pendant la promotion</b>, contre <b>9,0 unités/mois</b> en dehors — soit un
+        <b>uplift de +60 %</b> en volume.
+        </p>
+      </div>
+    </div>
+    <div class="panel" style="margin-top:20px;">
+      <h3>Effet sur la marge nette (ce que le volume seul ne montre pas)</h3>
+      <div class="kpi-row" style="margin-top:10px;margin-bottom:6px;">
+        <div class="kpi"><div class="label">Marge unitaire — prix normal</div><div class="value">18,1 €</div></div>
+        <div class="kpi"><div class="label">Marge unitaire — prix promo</div><div class="value">9,6 €</div></div>
+        <div class="kpi bad"><div class="label">Impact net sur la marge</div><div class="value">-15 %</div><div class="sub">vs. un mois sans promotion, à volume hypothétique équivalent</div></div>
+      </div>
+      <div class="callout warn"><b>Point de vigilance confirmé :</b> la remise pratiquée en moyenne réduit la marge unitaire de moitié. Le supplément de volume (+60%) ne compense pas cette baisse : sur les données disponibles, l'opération promotionnelle est en moyenne <b>légèrement déficitaire en marge nette</b>, même si elle dynamise bien le chiffre d'affaires et les volumes. Cette estimation agrège l'ensemble des promotions sans distinguer par segment ou par produit — à affiner produit par produit dans le tableau de bord final.</div>
+    </div>
+  </section>
+
+  <!-- ===== RECOMMANDATIONS ===== -->
+  <section id="reco">
+    <h2 class="page-title">Recommandations business</h2>
+    <p class="page-sub">Trois pistes argumentées à partir des données, pour discussion avec Nicolas et Florian</p>
+
+    <div class="reco">
+      <h4><span class="badge">1</span>Statuer sur les 110 références sans fiche web</h4>
+      <p>110 SKU existent dans le référentiel Finance (prix, prix d'achat) mais n'ont ni fiche sur le site ni la moindre vente enregistrée sur les 12 mois de l'analyse — y compris les 15 aux prix les plus élevés listées ci-dessous. Ce ne sont pas des ventes cachées à débloquer rapidement, mais des références dormantes : à trancher entre publication test, et déréférencement si elles sont obsolètes.</p>
+      <div style="overflow-x:auto;margin-top:12px;">
+        <table class="doc">
+          <tr><th>SKU</th><th>Prix catalogue</th><th>Ventes sur 12 mois</th><th>Présent sur le site</th></tr>
+          <tbody id="orphanTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="reco">
+      <h4><span class="badge">2</span>Cibler la promotion plutôt que la généraliser</h4>
+      <p>L'effet volume est réel (+60%) mais l'effet net sur la marge est légèrement négatif en moyenne (-15%). Recommandation révisée : réserver la promotion aux produits à forte marge de base ou au stock dormant à écouler, et suivre le ROI net (marge × volume) opération par opération plutôt que le seul volume vendu.</p>
+    </div>
+    <div class="reco">
+      <h4><span class="badge">3</span>Traiter le stock à rotation lente</h4>
+      <p>Une dizaine de références de garde immobilisent plusieurs milliers d'euros chacune — revue trimestrielle recommandée pour libérer de la trésorerie sans dégrader l'image de la cave.</p>
+    </div>
+  </section>
+
+  <!-- ===== DOC ===== -->
+  <section id="doc">
+    <h2 class="page-title">Documentation</h2>
+    <p class="page-sub">Modèle de données, méthode de mise à jour et points de vigilance qualité</p>
+    <div class="panel">
+      <h3>Modèle de données (schéma en étoile)</h3>
+      <table class="doc">
+        <tr><th>Table</th><th>Rôle</th><th>Clé</th></tr>
+        <tr><td>Finance</td><td>Table de faits — prix, prix d'achat, taxation, par mois et par SKU</td><td>Key_Finance (clé primaire)</td></tr>
+        <tr><td>Sales</td><td>Table de faits — ventes, commandes, stock, par mois et par SKU</td><td>Key_Finance</td></tr>
+        <tr><td>Promo</td><td>Table de faits — périodes et effet des promotions</td><td>Key_Finance</td></tr>
+        <tr><td>Web</td><td>Dimension produit — segment, type, titre, statut de publication</td><td>SKU</td></tr>
+      </table>
+    </div>
+    <div class="callout">
+      <b>Anomalie de dictionnaire identifiée :</b> dans la table <i>Promo</i>, les colonnes <code>Sales_Offer</code> et <code>Price_Offer</code> sont inversées par rapport à leur description officielle. Vérifié par recoupement avec la table Finance.
+    </div>
+    <div class="callout">
+      <b>Méthode du ROI net promo :</b> marge unitaire moyenne au prix normal et au prix promo (recoupement Promo × Finance), appliquée aux volumes moyens hors/avec promotion déjà mesurés, pour estimer l'impact net sur la marge sur l'ensemble des opérations. Estimation agrégée, à affiner par produit dans la version finale.
+    </div>
+    <div class="callout">
+      <b>Procédure de mise à jour prévue (Power Query) :</b> conversion des champs numériques texte-virgule, neutralisation des valeurs vides avant jointure, harmonisation du typage SKU, jointure des quatre tables, puis actualisation programmée.
+    </div>
+  </section>
+
+</main>
+<footer>Prototype de préparation — Projet 9 OpenClassrooms — à répliquer dans Power BI Desktop</footer>
+
+<script>
+const WINE = "#7A1230", WINE2="#9c2a49", GOLD="#C9A227", BAD="#8a3b2a";
+const PALETTE = ["#7A1230","#9c2a49","#C9A227","#b96b5b","#d8c9c0"];
+const SEGMENTS = ["Vin","Spiritueux","Sans Alcool","Huile","Offres commerciales"];
+
+const CA_MATRIX = {"2022-10":{"Vin":131889,"Spiritueux":22938,"Sans Alcool":0,"Huile":530,"Offres commerciales":200},"2022-11":{"Vin":242212,"Spiritueux":53919,"Sans Alcool":0,"Huile":572,"Offres commerciales":350},"2022-12":{"Vin":293376,"Spiritueux":99389,"Sans Alcool":0,"Huile":612,"Offres commerciales":800},"2023-01":{"Vin":76454,"Spiritueux":15041,"Sans Alcool":0,"Huile":625,"Offres commerciales":125},"2023-02":{"Vin":70848,"Spiritueux":15440,"Sans Alcool":0,"Huile":669,"Offres commerciales":100},"2023-03":{"Vin":77765,"Spiritueux":15220,"Sans Alcool":0,"Huile":746,"Offres commerciales":125},"2023-04":{"Vin":102494,"Spiritueux":14386,"Sans Alcool":0,"Huile":726,"Offres commerciales":100},"2023-05":{"Vin":128502,"Spiritueux":13669,"Sans Alcool":8214,"Huile":824,"Offres commerciales":75},"2023-06":{"Vin":168275,"Spiritueux":13124,"Sans Alcool":10537,"Huile":844,"Offres commerciales":125},"2023-07":{"Vin":182702,"Spiritueux":20843,"Sans Alcool":12414,"Huile":881,"Offres commerciales":100},"2023-08":{"Vin":149218,"Spiritueux":23222,"Sans Alcool":13307,"Huile":936,"Offres commerciales":175},"2023-09":{"Vin":221190,"Spiritueux":20875,"Sans Alcool":8159,"Huile":969,"Offres commerciales":175}};
+const MARGE_MATRIX = {"2022-10":{"Vin":63663,"Spiritueux":10195,"Sans Alcool":0,"Huile":201,"Offres commerciales":33},"2022-11":{"Vin":116944,"Spiritueux":23001,"Sans Alcool":0,"Huile":217,"Offres commerciales":58},"2022-12":{"Vin":141637,"Spiritueux":41379,"Sans Alcool":0,"Huile":232,"Offres commerciales":133},"2023-01":{"Vin":36927,"Spiritueux":6974,"Sans Alcool":0,"Huile":237,"Offres commerciales":21},"2023-02":{"Vin":34079,"Spiritueux":6892,"Sans Alcool":0,"Huile":238,"Offres commerciales":17},"2023-03":{"Vin":37247,"Spiritueux":6660,"Sans Alcool":0,"Huile":266,"Offres commerciales":21},"2023-04":{"Vin":48901,"Spiritueux":6213,"Sans Alcool":0,"Huile":259,"Offres commerciales":17},"2023-05":{"Vin":61131,"Spiritueux":6029,"Sans Alcool":4439,"Huile":294,"Offres commerciales":13},"2023-06":{"Vin":79600,"Spiritueux":5854,"Sans Alcool":5689,"Huile":301,"Offres commerciales":21},"2023-07":{"Vin":86155,"Spiritueux":8960,"Sans Alcool":6701,"Huile":315,"Offres commerciales":17},"2023-08":{"Vin":70002,"Spiritueux":9892,"Sans Alcool":7185,"Huile":334,"Offres commerciales":29},"2023-09":{"Vin":103218,"Spiritueux":9157,"Sans Alcool":4404,"Huile":345,"Offres commerciales":29}};
+const STOCK_BY_MONTH = {"2022-10":{"qty":25185,"value":378232},"2022-11":{"qty":42355,"value":573194},"2022-12":{"qty":28257,"value":363559},"2023-01":{"qty":31969,"value":418601},"2023-02":{"qty":32060,"value":418758},"2023-03":{"qty":36779,"value":477126},"2023-04":{"qty":37233,"value":494285},"2023-05":{"qty":37730,"value":498303},"2023-06":{"qty":46405,"value":633721},"2023-07":{"qty":46189,"value":620536},"2023-08":{"qty":46549,"value":619486},"2023-09":{"qty":36316,"value":490637}};
+const TOP_BY_SEG = {"Vin":{"Volnay 1er Cru Santenots (2020)":11615,"Côte Rôtie Améthyste 2021":11573,"Volnay 1er Cru Santenots (2013)":10500,"Clos de Vougeot 2022":9800,"Chassagne-Montrachet 1er Cru 2022":9610},"Spiritueux":{"Champagne Egly-Ouriet G. Cru 2008":42075,"Coteaux Champenois Ambonnay Rouge":19513,"Champagne Egly-Ouriet Brut Rosé":19396,"Champagne Egly-Ouriet Blanc de Noirs":16774,"Champagne Agrapart Minéral G. Cru":13477},"Sans Alcool":{"Pink London Spirit 70cl":3277,"BTTR n°1 70cl":3115,"JNPR N°2 spiritueux sans alcool":2556,"Lyre's Classico 75cl":2455,"Baby Jen 37cl":2311},"Huile":{"Huile Olive Planeta Chef 3L":3724,"Huiles Olive Planeta 3x10cl":3555,"Huile Olive Planeta 50cl":1656},"Offres commerciales":{"Bon cadeau de 25€":2450}};
+const TOP_ALL = {"Champagne Egly-Ouriet G. Cru 2008":42075,"Coteaux Champenois Ambonnay Rouge":19513,"Champagne Egly-Ouriet Brut Rosé":19396,"Champagne Egly-Ouriet Blanc de Noirs":16774,"Champagne Agrapart Minéral G. Cru":13477,"Volnay 1er Cru Santenots (2020)":11615,"Côte Rôtie Améthyste 2021":11573,"Volnay 1er Cru Santenots (2013)":10500};
+const ORPHANS = [{"sku":"6324","price":192.0},{"sku":"4594","price":162.0},{"sku":"4055","price":86.1},{"sku":"5070","price":84.3},{"sku":"4090","price":82.9},{"sku":"4209","price":73.5},{"sku":"5953","price":53.2},{"sku":"4577","price":52.7},{"sku":"4092","price":52.4},{"sku":"5560","price":51.2},{"sku":"7203","price":51.1},{"sku":"7196","price":51.0},{"sku":"7168","price":50.6},{"sku":"7169","price":50.2},{"sku":"7136","price":49.7}];
+
+const MONTHS = Object.keys(CA_MATRIX);
+const MONTH_LABELS = {"2022-10":"Oct. 2022","2022-11":"Nov. 2022","2022-12":"Déc. 2022","2023-01":"Jan. 2023","2023-02":"Fév. 2023","2023-03":"Mars 2023","2023-04":"Avr. 2023","2023-05":"Mai 2023","2023-06":"Juin 2023","2023-07":"Juil. 2023","2023-08":"Août 2023","2023-09":"Sept. 2023"};
+
+const layoutBase = {
+  font:{family:"Arial, sans-serif", color:"#3a332f", size:12},
+  margin:{t:10,l:50,r:20,b:40},
+  paper_bgcolor:"rgba(0,0,0,0)",
+  plot_bgcolor:"rgba(0,0,0,0)",
+};
+
+// ---- nav ----
+document.getElementById('nav').addEventListener('click', e=>{
+  if(e.target.tagName!=='BUTTON') return;
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('main section').forEach(s=>s.classList.remove('active'));
+  e.target.classList.add('active');
+  document.getElementById(e.target.dataset.t).classList.add('active');
+  window.dispatchEvent(new Event('resize'));
+});
+
+// ---- populate filter selects ----
+const fFrom = document.getElementById('fFrom'), fTo = document.getElementById('fTo'), fSeg = document.getElementById('fSeg');
+MONTHS.forEach(m=>{
+  fFrom.innerHTML += `<option value="${m}">${MONTH_LABELS[m]}</option>`;
+  fTo.innerHTML += `<option value="${m}">${MONTH_LABELS[m]}</option>`;
+});
+fFrom.value = MONTHS[0]; fTo.value = MONTHS[MONTHS.length-1];
+
+function fmtEUR(v){ return v.toLocaleString('fr-FR',{maximumFractionDigits:0}) + " €"; }
+function fmtEURm(v){ return (v/1e6).toLocaleString('fr-FR',{maximumFractionDigits:2}) + " M€"; }
+
+function monthRange(){
+  let i0 = MONTHS.indexOf(fFrom.value), i1 = MONTHS.indexOf(fTo.value);
+  if(i0>i1){ [i0,i1]=[i1,i0]; }
+  return MONTHS.slice(i0,i1+1);
+}
+
+function segList(){
+  return fSeg.value === "Tous" ? SEGMENTS : [fSeg.value];
+}
+
+function render(){
+  const months = monthRange();
+  const segs = segList();
+
+  // KPIs
+  let ca = 0, marge = 0;
+  months.forEach(m=>segs.forEach(s=>{ ca += CA_MATRIX[m][s]||0; marge += MARGE_MATRIX[m][s]||0; }));
+  document.getElementById('kpiCA').textContent = ca >= 1e6 ? fmtEURm(ca) : fmtEUR(ca);
+  document.getElementById('kpiCASub').textContent = `${MONTH_LABELS[months[0]]} → ${MONTH_LABELS[months[months.length-1]]}` + (fSeg.value!=="Tous" ? ` · ${fSeg.value}` : '');
+  document.getElementById('kpiMarge').textContent = (ca>0 ? (marge/ca*100).toFixed(1) : "0") + " %";
+
+  const lastMonth = months[months.length-1];
+  const st = STOCK_BY_MONTH[lastMonth];
+  document.getElementById('kpiStock').textContent = fmtEUR(st.value);
+  document.getElementById('kpiStockSub').textContent = `fin ${MONTH_LABELS[lastMonth]}, tous segments`;
+  document.getElementById('kpiStockQty').textContent = st.qty.toLocaleString('fr-FR');
+  document.getElementById('kpiStockVal').textContent = fmtEUR(st.value);
+
+  // CA trend chart (all 12 months shown, selected range highlighted)
+  const caVals = MONTHS.map(m => segs.reduce((acc,s)=>acc+(CA_MATRIX[m][s]||0),0));
+  const inRange = MONTHS.map(m => months.includes(m));
+  const colors = inRange.map(b => b ? WINE : "#e3d6ca");
+  Plotly.react('chartCA', [{
+    x: MONTHS.map(m=>MONTH_LABELS[m]), y: caVals, type:'bar', marker:{color:colors}
+  }], {...layoutBase, yaxis:{title:'CA (€)', tickformat:','}}, {displayModeBar:false, responsive:true});
+
+  // Segment CA pie (for selected period only)
+  const segCA = SEGMENTS.map(s => months.reduce((acc,m)=>acc+(CA_MATRIX[m][s]||0),0));
+  const totalSegCA = segCA.reduce((a,b)=>a+b,0);
+  const pieLabels = SEGMENTS.map((s,i)=> `${s} — ${totalSegCA>0 ? Math.round(segCA[i]/totalSegCA*100) : 0}%`);
+  Plotly.react('chartSegCA', [{
+    labels: pieLabels, values: segCA, type:'pie', hole:.5, marker:{colors:PALETTE}, showlegend:true
+  }], {...layoutBase, showlegend:true, legend:{orientation:'h', y:-0.15}}, {displayModeBar:false, responsive:true});
+
+  // Segment marge bar (highlight selected segment)
+  const margeVals = SEGMENTS.map(s => {
+    const c = months.reduce((acc,m)=>acc+(CA_MATRIX[m][s]||0),0);
+    const mg = months.reduce((acc,m)=>acc+(MARGE_MATRIX[m][s]||0),0);
+    return c>0 ? Math.round(mg/c*100*10)/10 : 0;
+  });
+  const sortedIdx = SEGMENTS.map((s,i)=>i).sort((a,b)=>margeVals[a]-margeVals[b]);
+  const segMargeColors = sortedIdx.map(i => (fSeg.value!=="Tous" && SEGMENTS[i]!==fSeg.value) ? "#e3d6ca" : WINE);
+  Plotly.react('chartSegMarge', [{
+    x: sortedIdx.map(i=>margeVals[i]), y: sortedIdx.map(i=>SEGMENTS[i]), type:'bar', orientation:'h', marker:{color:segMargeColors}
+  }], {...layoutBase, xaxis:{title:'Taux de marge (%)'}, margin:{t:10,l:120,r:30,b:40}}, {displayModeBar:false, responsive:true});
+
+  // Top products (segment-aware)
+  const topData = fSeg.value==="Tous" ? TOP_ALL : (TOP_BY_SEG[fSeg.value]||{});
+  document.getElementById('topProdTitle').textContent = fSeg.value==="Tous" ? "Top références par CA (tous segments, période complète)" : `Top références — ${fSeg.value}`;
+  const names = Object.keys(topData), vals = Object.values(topData);
+  Plotly.react('chartTopProd', [{
+    x: vals, y: names, type:'bar', orientation:'h', marker:{color:WINE}
+  }], {...layoutBase, xaxis:{title:'CA (€)'}, margin:{t:10,l:260,r:30,b:40}, yaxis:{autorange:'reversed'}}, {displayModeBar:false, responsive:true});
+}
+
+fFrom.addEventListener('change', render);
+fTo.addEventListener('change', render);
+fSeg.addEventListener('change', render);
+document.getElementById('fReset').addEventListener('click', ()=>{
+  fFrom.value = MONTHS[0]; fTo.value = MONTHS[MONTHS.length-1]; fSeg.value = "Tous"; render();
+});
+
+// ---- static charts (stock, promo) ----
+const stockNames = ["Château de Meursault Puligny-Montrachet","Domaine Weinbach Gewurztraminer G. Cru","Zind-Humbrecht Riesling Grand Cru","Clos du Mont-Olivet CDR Blanc","Maison Trimbach Riesling Grand Cru","Lucien Boillot Pommard 1er Cru","Marcel Windholtz Eau de Vie de Coing","Comtes Lafon Volnay 1er Cru","David Duband Charmes-Chambertin","David Duband Morey-St-Denis 2021"];
+const stockMois = [29.1,24.8,21.6,16.3,13.6,12.8,12.8,12.0,11.1,11.1];
+Plotly.newPlot('chartStock', [{ x: stockMois, y: stockNames, type:'bar', orientation:'h', marker:{color:GOLD} }],
+  {...layoutBase, xaxis:{title:'Mois de stock'}, margin:{t:10,l:280,r:30,b:40}, yaxis:{autorange:'reversed'}}, {displayModeBar:false, responsive:true});
+
+Plotly.newPlot('chartPromo', [{
+  x:['Hors promotion','Pendant la promotion'], y:[9.0,14.4], type:'bar',
+  marker:{color:[WINE2,WINE]}, text:['9,0 u/mois','14,4 u/mois'], textposition:'outside'
+}], {...layoutBase, yaxis:{title:'Ventes moyennes (unités/mois)'}}, {displayModeBar:false, responsive:true});
+
+// ---- orphan table ----
+const tbody = document.getElementById('orphanTableBody');
+ORPHANS.forEach(o=>{
+  tbody.innerHTML += `<tr><td>${o.sku}</td><td>${o.price.toLocaleString('fr-FR',{minimumFractionDigits:2})} €</td><td>0</td><td>Non</td></tr>`;
+});
+
+render();
+
+window.addEventListener('resize', ()=>{
+  ['chartCA','chartSegCA','chartSegMarge','chartTopProd','chartStock','chartPromo'].forEach(id=>{
+    const el=document.getElementById(id); if(el && el.data) Plotly.Plots.resize(el);
+  });
+});
+</script>
+</body>
+</html>
