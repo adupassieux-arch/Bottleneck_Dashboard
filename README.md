@@ -2,7 +2,7 @@
 
 Projet 9 du parcours **Business Intelligence Analyst** : mise à disposition des données de vente d'un négociant en vins et spiritueux fictif (*Bottleneck*) dans un outil de data visualisation, pour un pilotage autonome de l'activité par la direction et les chefs de produits.
 
-> Étude de cas pédagogique — les données (Bottleneck) sont fictives.
+> Étude de cas — les données (Bottleneck) sont fictives.
 
 ## Contexte
 
